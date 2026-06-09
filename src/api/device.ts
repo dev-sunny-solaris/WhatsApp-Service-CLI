@@ -59,12 +59,14 @@ export async function sendMedia(
   to: string,
   uploadId: string,
   caption?: string,
+  forceDocument?: boolean,
 ): Promise<SendResult> {
   return unwrap(
     getHttp().post('/messages/send/media', {
       to,
       upload_id: uploadId,
       ...(caption ? { caption } : {}),
+      ...(forceDocument ? { force_document: true } : {}),
     }),
   )
 }

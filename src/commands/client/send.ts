@@ -25,11 +25,13 @@ export async function sendTextHandler(ctx: CommandContext): Promise<void> {
 }
 
 export async function sendMediaHandler(ctx: CommandContext): Promise<void> {
-  const [to, filePath, ...captionParts] = ctx.args
+  const forceDocument = ctx.args.includes('--document')
+  const cleanArgs = ctx.args.filter((a) => a !== '--document')
+  const [to, filePath, ...captionParts] = cleanArgs
   const caption = captionParts.length > 0 ? captionParts.join(' ') : undefined
 
   if (!to || !filePath) {
-    ctx.write('Usage: /send media <to> <file_path> [caption]', 'error')
+    ctx.write('Usage: /send media <to> <file_path> [caption] [--document]', 'error')
     return
   }
 
@@ -39,7 +41,7 @@ export async function sendMediaHandler(ctx: CommandContext): Promise<void> {
       ctx.setView?.(createElement(ProgressBar, { pct, label }))
     })
     ctx.setView?.(null)
-    const result = await sendMedia(to, uploadId, caption)
+    const result = await sendMedia(to, uploadId, caption, forceDocument || undefined)
     ctx.write(`Sent${result.message_id ? ` · ID: ${result.message_id}` : ''}`, 'success')
   } catch (e) {
     ctx.setView?.(null)

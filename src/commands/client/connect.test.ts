@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearSession, setSession } from '../../state/session.js'
 
@@ -5,46 +6,36 @@ const mockConnect = vi.fn()
 vi.mock('../../api/device.js', () => ({ connect: mockConnect }))
 vi.mock('qrcode', () => ({ default: { toString: vi.fn().mockResolvedValue('MOCK_QR_ART') } }))
 
-// Class-based mock — avoids vi.clearAllMocks resetting implementation
-type FakeES = {
-  url: string
-  opts: unknown
-  onmessage: ((e: { data: string }) => void) | null
-  onerror: ((e: unknown) => void) | null
-  close: () => void
-  _closed: boolean
+class FakeStream extends EventEmitter {
+  destroyed = false
+  destroy() { this.destroyed = true }
+  push(chunk: string) { this.emit('data', Buffer.from(chunk)) }
 }
 
-let capturedES: FakeES | null = null
-
-vi.mock('eventsource', () => {
-  class FakeEventSource {
-    url: string
-    opts: unknown
-    onmessage: ((e: { data: string }) => void) | null = null
-    onerror: ((e: unknown) => void) | null = null
-    _closed = false
-    close() { this._closed = true }
-
-    constructor(url: string, opts: unknown) {
-      this.url = url
-      this.opts = opts
-      capturedES = this as unknown as FakeES
-    }
-  }
-  return { EventSource: FakeEventSource }
-})
+const mockAxiosGet = vi.fn()
+vi.mock('axios', () => ({
+  default: {
+    get: mockAxiosGet,
+    isAxiosError: (e: unknown) => Boolean((e as any)?.isAxiosError),
+  },
+}))
 
 function makeCtx() {
   const writes: Array<{ text: string; type?: string }> = []
   const setView = vi.fn()
+  const setCancel = vi.fn()
   return {
     args: [] as string[],
     write: (text: string, type?: string) => writes.push({ text, type }),
     writeLine: (line: { text: string; type: string }) => writes.push(line),
     setView,
+    setCancel,
     writes,
   }
+}
+
+function sseEvent(data: unknown): string {
+  return `data: ${JSON.stringify(data)}\n`
 }
 
 async function tick() {
@@ -52,10 +43,14 @@ async function tick() {
 }
 
 describe('/connect handler', () => {
+  let stream: FakeStream
+
   beforeEach(() => {
     clearSession()
     mockConnect.mockReset()
-    capturedES = null
+    mockAxiosGet.mockReset()
+    stream = new FakeStream()
+    mockAxiosGet.mockResolvedValue({ data: stream })
     setSession({
       role: 'client',
       baseUrl: 'http://api.test',
@@ -63,7 +58,7 @@ describe('/connect handler', () => {
     })
   })
 
-  it('opens EventSource with correct URL and auth headers', async () => {
+  it('opens axios stream with correct URL and auth headers', async () => {
     mockConnect.mockResolvedValue(undefined)
     const { connectHandler } = await import('./connect.js')
     const ctx = makeCtx()
@@ -71,14 +66,18 @@ describe('/connect handler', () => {
     const promise = connectHandler(ctx)
     await tick()
 
-    expect(capturedES).not.toBeNull()
-    expect(capturedES!.url).toBe('http://api.test/me/qr')
-    expect((capturedES!.opts as Record<string, unknown>).headers).toMatchObject({
-      'X-Api-Key': 'key-abc',
-      'X-Device-Id': 'dev-123',
-    })
+    expect(mockAxiosGet).toHaveBeenCalledWith(
+      'http://api.test/me/qr',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Api-Key': 'key-abc',
+          'X-Device-Id': 'dev-123',
+        }),
+        responseType: 'stream',
+      }),
+    )
 
-    capturedES!.onmessage?.({ data: JSON.stringify({ type: 'status', status: 'CONNECTED' }) })
+    stream.push(sseEvent({ type: 'status', status: 'CONNECTED' }))
     await promise
   })
 
@@ -90,16 +89,16 @@ describe('/connect handler', () => {
     const promise = connectHandler(ctx)
     await tick()
 
-    capturedES!.onmessage?.({ data: JSON.stringify({ type: 'qr', qr: 'qr-raw-string' }) })
-    await tick()  // allow generateQRText (mocked) to resolve
+    stream.push(sseEvent({ type: 'qr', qr: 'qr-raw-string' }))
+    await tick()
 
     expect(ctx.setView).toHaveBeenCalledWith(expect.anything())
 
-    capturedES!.onmessage?.({ data: JSON.stringify({ type: 'status', status: 'CONNECTED' }) })
+    stream.push(sseEvent({ type: 'status', status: 'CONNECTED' }))
     await promise
   })
 
-  it('closes EventSource and writes success on CONNECTED', async () => {
+  it('destroys stream and writes success on CONNECTED', async () => {
     mockConnect.mockResolvedValue(undefined)
     const { connectHandler } = await import('./connect.js')
     const ctx = makeCtx()
@@ -107,10 +106,10 @@ describe('/connect handler', () => {
     const promise = connectHandler(ctx)
     await tick()
 
-    capturedES!.onmessage?.({ data: JSON.stringify({ type: 'status', status: 'CONNECTED' }) })
+    stream.push(sseEvent({ type: 'status', status: 'CONNECTED' }))
     await promise
 
-    expect(capturedES!._closed).toBe(true)
+    expect(stream.destroyed).toBe(true)
     expect(ctx.setView).toHaveBeenCalledWith(null)
     expect(ctx.writes.some((w) => w.type === 'success')).toBe(true)
   })
@@ -126,10 +125,10 @@ describe('/connect handler', () => {
     await connectHandler(ctx)
 
     expect(ctx.writes.some((w) => w.type === 'error')).toBe(true)
-    expect(capturedES).toBeNull()
+    expect(mockAxiosGet).not.toHaveBeenCalled()
   })
 
-  it('writes error and resolves on EventSource error', async () => {
+  it('writes error and resolves on stream error', async () => {
     mockConnect.mockResolvedValue(undefined)
     const { connectHandler } = await import('./connect.js')
     const ctx = makeCtx()
@@ -137,10 +136,9 @@ describe('/connect handler', () => {
     const promise = connectHandler(ctx)
     await tick()
 
-    capturedES!.onerror?.(new Error('SSE error'))
+    stream.emit('error', new Error('SSE error'))
     await promise
 
-    expect(capturedES!._closed).toBe(true)
     expect(ctx.writes.some((w) => w.type === 'error')).toBe(true)
   })
 })

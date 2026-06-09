@@ -17,13 +17,25 @@ function lineColor(type: OutputType): string {
 
 interface Props {
   messages: OutputLine[]
+  scrollOffset: number
+  maxRows: number
 }
 
-export default function ChatHistory({ messages }: Props) {
+export default function ChatHistory({ messages, scrollOffset, maxRows }: Props) {
+  const total = messages.length
+  const safeOffset = Math.min(scrollOffset, Math.max(0, total - 1))
+  const end = total - safeOffset
+  const start = Math.max(0, end - maxRows)
+  const visible = messages.slice(start, end)
+  const hiddenAbove = start
+
   return (
     <Box flexDirection="column">
-      {messages.map((line, i) => (
-        <Text key={i} color={lineColor(line.type)}>
+      {hiddenAbove > 0 && (
+        <Text dimColor>{` ↑ ${hiddenAbove} message${hiddenAbove > 1 ? 's' : ''} above  ·  PgUp / PgDn to scroll`}</Text>
+      )}
+      {visible.map((line, i) => (
+        <Text key={start + i} color={lineColor(line.type)}>
           {buildPrefix(line.type)}{line.text}
         </Text>
       ))}

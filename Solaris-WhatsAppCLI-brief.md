@@ -37,7 +37,7 @@ POST   /me/connect
 POST   /me/logout
 GET    /me/qr                             SSE stream → events: { type: 'qr'|'status', qr?, status? }
 POST   /messages/send/text               body: { to, message }
-POST   /messages/send/media              body: { to, upload_id, caption? }
+POST   /messages/send/media              body: { to, upload_id, caption?, force_document? }
 POST   /media/upload/init                body: { filename, mimetype, size } → { upload_id }
 POST   /media/upload/:upload_id/chunk?index=N   body: raw binary (application/octet-stream), max 2 MB
 POST   /media/upload/:upload_id/complete
@@ -56,9 +56,12 @@ GET    /packages
 UNAUTHENTICATED → /login       → CLIENT
 UNAUTHENTICATED → /login-admin → ADMIN
 CLIENT / ADMIN  → /logout      → UNAUTHENTICATED
+CLIENT          → /disconnect  → CLIENT (credentials tetap, phone disconnect)
 ```
 
 Switch role = `/logout` dulu → login ulang dengan role lain.
+
+**Session persistence:** Credentials di-restore otomatis saat CLI dijalankan ulang. Exit tanpa `/logout` = sesi tetap aktif.
 
 **Credential storage:** AES-256-GCM encrypted di `~/.config/solaris-whatsapp-cli/`. Key dari machine ID + username. Tidak ada native deps.
 
@@ -98,11 +101,13 @@ Switch role = `/logout` dulu → login ulang dengan role lain.
 
 ### CLIENT
 ```
-/logout
+/logout                            hapus credentials lokal, balik ke UNAUTHENTICATED (tidak hit API)
+/disconnect                        POST /me/logout → disconnect phone dari WhatsApp, credentials tetap tersimpan
 /me
 /connect                           POST /me/connect → SSE /me/qr → render QR ASCII art, live update
 /send text                         prompt: to, message
-/send media                        prompt: to, file path, caption?
+/send media                        prompt: to, file path, caption?, [--document]
+                                     --document: force kirim sebagai file attachment (image/video → no preview)
 /webhook set                       prompt: URL, secret
 /packages
 ```
@@ -157,11 +162,12 @@ Chunked:
   "react": "^18.x",
   "chalk": "^5.x",
   "axios": "^1.x",
-  "eventsource": "^3.x",
   "conf": "^12.x",
   "qrcode": "^1.x"
 }
 ```
+
+> **Note:** SSE (`/me/qr`) menggunakan `axios` dengan `responseType: 'stream'` — bukan `eventsource`. eventsource v3 menghapus opsi `headers` dari constructor.
 
 ---
 
@@ -190,17 +196,19 @@ src/
     client/
       login.ts
       me.ts
-      connect.ts       # SSE + QR render
+      connect.ts       # axios stream + QR render (SSE via axios responseType: 'stream')
+      disconnect.ts    # POST /me/logout → disconnect phone, keep credentials
       send.ts
-      upload.ts        # direct + chunked upload logic, progress emitter
+      upload.ts        # direct + chunked upload logic, MIME detection, progress emitter
       webhook.ts
   ui/
-    App.tsx            # root ink component
-    ChatHistory.tsx    # output log (scrollable)
-    InputBar.tsx       # text input + "/" trigger
+    App.tsx            # root ink component, session restore on mount, scroll state
+    ChatHistory.tsx    # output log, scrollable (PgUp/PgDn)
+    InputBar.tsx       # text input + "/" trigger, full cursor + keyboard shortcuts
     CommandDropdown.tsx
     SelectPrompt.tsx   # interactive select (device, package, token)
     QRDisplay.tsx      # QR ASCII art
+    StatusBar.tsx      # sticky status line: connected · phone · daily usage
     Spinner.tsx
     theme.ts
 ```

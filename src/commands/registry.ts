@@ -19,6 +19,7 @@ export interface CommandContext {
   }) => Promise<string | undefined>
   clear?: () => void
   exit?: () => void
+  setCancel?: (fn: (() => void) | null) => void
 }
 
 export type CommandHandler = (ctx: CommandContext) => Promise<void>

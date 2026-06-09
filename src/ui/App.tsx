@@ -1,5 +1,6 @@
-import { Box, useApp, useInput } from 'ink'
-import { useCallback, useRef, useState, type ReactElement } from 'react'
+import { Box, useApp, useInput, useStdout } from 'ink'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { getMe } from '../api/device.js'
 import { dispatch, matchCommands, type CommandDef, type OutputLine } from '../commands/registry.js'
 import { getRole } from '../state/session.js'
 import ChatHistory from './ChatHistory.js'
@@ -8,6 +9,9 @@ import { filterCommands, nextIndex, prevIndex } from './CommandDropdown.js'
 import InputBar from './InputBar.js'
 import SelectPrompt from './SelectPrompt.js'
 import { nextSelectIndex, prevSelectIndex, type SelectItem } from './selectHelpers.js'
+import StatusBar, { type StatusInfo } from './StatusBar.js'
+
+const PAGE_SIZE = 5
 
 interface SelectMode {
   items: SelectItem[]
@@ -18,10 +22,14 @@ interface SelectMode {
 
 export default function App() {
   const { exit } = useApp()
+  const { stdout } = useStdout()
+  const cancelRef = useRef<(() => void) | null>(null)
+  const messagesRef = useRef<OutputLine[]>([])
   const [messages, setMessages] = useState<OutputLine[]>([])
   const [activeView, setActiveView] = useState<ReactElement | null>(null)
-  const [inputValue, setInputValue] = useState('')
-  const [inputCursor, setInputCursor] = useState(0)
+  const [input, setInput] = useState({ value: '', cursor: 0 })
+  const [scrollOffset, setScrollOffset] = useState(0)
+  const [status, setStatus] = useState<StatusInfo | null>(null)
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -30,6 +38,9 @@ export default function App() {
   const [selectMode, setSelectMode] = useState<SelectMode | null>(null)
   const [selectIndex, setSelectIndex] = useState(0)
   const selectIndexRef = useRef(0)
+
+  // Keep ref in sync so useInput can read current messages.length without stale closure
+  messagesRef.current = messages
 
   const write = useCallback((text: string, type: OutputLine['type'] = 'info') => {
     setMessages((prev) => [...prev, { text, type }])
@@ -63,9 +74,28 @@ export default function App() {
     [],
   )
 
+  const refreshStatus = useCallback(async () => {
+    if (getRole() !== 'client') {
+      setStatus(null)
+      return
+    }
+    try {
+      const info = await getMe()
+      setStatus({
+        connected: info.is_connected,
+        phone: info.phone_number,
+        dailyUsed: info.daily_used,
+        dailyLimit: info.quota?.daily_limit ?? null,
+      })
+    } catch {
+      // keep stale status on error
+    }
+  }, [])
+
+  useEffect(() => { void refreshStatus() }, [refreshStatus])
+
   const handleValueChange = useCallback((value: string, cursor: number) => {
-    setInputValue(value)
-    setInputCursor(cursor)
+    setInput({ value, cursor })
     setHistoryIndex(-1)
   }, [])
 
@@ -90,6 +120,7 @@ export default function App() {
         setHistoryIndex(-1)
       }
       writeLine({ text: input, type: 'raw' })
+      setScrollOffset(0)
 
       const role = getRole()
       const found = await dispatch(input, role, {
@@ -99,16 +130,37 @@ export default function App() {
         showSelect,
         clear: () => setMessages([]),
         exit,
+        setCancel: (fn) => { cancelRef.current = fn },
       })
 
       if (!found) {
         write(`Unknown command: ${input}`, 'error')
       }
+
+      void refreshStatus()
     },
-    [write, writeLine, showSelect, exit],
+    [write, writeLine, showSelect, refreshStatus, exit],
   )
 
   useInput((_input, key) => {
+    // ESC while active view (e.g. QR) is showing → cancel command
+    if (key.escape && activeView) {
+      cancelRef.current?.()
+      cancelRef.current = null
+      setActiveView(null)
+      return
+    }
+
+    // Scroll chat history
+    if (key.pageUp) {
+      setScrollOffset((o) => Math.min(o + PAGE_SIZE, Math.max(0, messagesRef.current.length - 1)))
+      return
+    }
+    if (key.pageDown) {
+      setScrollOffset((o) => Math.max(0, o - PAGE_SIZE))
+      return
+    }
+
     if (selectMode) {
       if (key.upArrow) {
         const next = prevSelectIndex(selectIndexRef.current, selectMode.items.length)
@@ -135,8 +187,7 @@ export default function App() {
         const selected = dropdownCommands[selectedIndex]
         if (selected) {
           const filled = `/${selected.name} `
-          setInputValue(filled)
-          setInputCursor(filled.length)
+          setInput({ value: filled, cursor: filled.length })
           handleDropdownClose()
         }
       }
@@ -148,31 +199,30 @@ export default function App() {
       const newIdx = historyIndex === -1
         ? commandHistory.length - 1
         : Math.max(0, historyIndex - 1)
-      setHistoryIndex(newIdx)
       const cmd = commandHistory[newIdx]
-      setInputValue(cmd)
-      setInputCursor(cmd.length)
+      setHistoryIndex(newIdx)
+      setInput({ value: cmd, cursor: cmd.length })
     } else if (key.downArrow && historyIndex !== -1) {
       const newIdx = historyIndex + 1
       if (newIdx >= commandHistory.length) {
         setHistoryIndex(-1)
-        setInputValue('')
-        setInputCursor(0)
+        setInput({ value: '', cursor: 0 })
       } else {
-        setHistoryIndex(newIdx)
         const cmd = commandHistory[newIdx]
-        setInputValue(cmd)
-        setInputCursor(cmd.length)
+        setHistoryIndex(newIdx)
+        setInput({ value: cmd, cursor: cmd.length })
       }
     }
   })
 
   const role = getRole()
+  // Available rows for chat: total - status bar (1) - input bar border+content (3)
+  const visibleRows = Math.max(5, stdout.rows - 4)
 
   return (
-    <Box flexDirection="column" height="100%">
-      <Box flexGrow={1} flexDirection="column" justifyContent="flex-end">
-        <ChatHistory messages={messages} />
+    <Box flexDirection="column" height={stdout.rows}>
+      <Box flexGrow={1} flexDirection="column" justifyContent="flex-end" overflow="hidden">
+        <ChatHistory messages={messages} scrollOffset={scrollOffset} maxRows={visibleRows} />
       </Box>
 
       {selectMode ? (
@@ -191,8 +241,8 @@ export default function App() {
             <CommandDropdown commands={dropdownCommands} selectedIndex={selectedIndex} />
           ) : null}
           <InputBar
-            value={inputValue}
-            cursor={inputCursor}
+            value={input.value}
+            cursor={input.cursor}
             onValueChange={handleValueChange}
             role={role}
             onSubmit={handleSubmit}
@@ -202,6 +252,8 @@ export default function App() {
           />
         </>
       )}
+
+      <StatusBar status={status} role={role} />
     </Box>
   )
 }

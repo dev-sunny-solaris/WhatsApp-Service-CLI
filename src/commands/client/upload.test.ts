@@ -23,7 +23,7 @@ describe('guessMime', () => {
     ['clip.mp4', 'video/mp4'],
     ['audio.mp3', 'audio/mpeg'],
     ['doc.pdf', 'application/pdf'],
-    ['archive.zip', 'application/octet-stream'],
+    ['archive.zip', 'application/zip'],
     ['noextension', 'application/octet-stream'],
   ])('%s → %s', (filename, expected) => {
     expect(guessMime(filename)).toBe(expected)

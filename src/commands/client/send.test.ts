@@ -73,7 +73,7 @@ describe('/send media', () => {
     await sendMediaHandler(ctx)
 
     expect(mockUploadFile).toHaveBeenCalledWith('/tmp/photo.jpg', expect.any(Function))
-    expect(mockSendMedia).toHaveBeenCalledWith('628123456789', 'upload-id-123', 'Nice photo')
+    expect(mockSendMedia).toHaveBeenCalledWith('628123456789', 'upload-id-123', 'Nice photo', undefined)
     expect(ctx.writes.some((w) => w.type === 'success')).toBe(true)
   })
 
@@ -86,7 +86,7 @@ describe('/send media', () => {
 
     await sendMediaHandler(ctx)
 
-    expect(mockSendMedia).toHaveBeenCalledWith('628123456789', 'upload-id-456', undefined)
+    expect(mockSendMedia).toHaveBeenCalledWith('628123456789', 'upload-id-456', undefined, undefined)
   })
 
   it('writes error when to is missing', async () => {

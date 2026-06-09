@@ -1,3 +1,4 @@
+import chalk from 'chalk'
 import { Box, Text, useInput } from 'ink'
 import { colors, symbols } from './theme.js'
 
@@ -17,6 +18,20 @@ function deleteLastWord(text: string): string {
   while (i >= 0 && text[i] === ' ') i--
   while (i >= 0 && text[i] !== ' ') i--
   return text.slice(0, i + 1)
+}
+
+function wordLeft(text: string, pos: number): number {
+  let i = pos
+  while (i > 0 && text[i - 1] === ' ') i--
+  while (i > 0 && text[i - 1] !== ' ') i--
+  return i
+}
+
+function wordRight(text: string, pos: number): number {
+  let i = pos
+  while (i < text.length && text[i] === ' ') i++
+  while (i < text.length && text[i] !== ' ') i++
+  return i
 }
 
 function syncDropdown(
@@ -66,8 +81,9 @@ export default function InputBar({
       return
     }
 
-    // Ctrl+W or Alt+Backspace: delete word before cursor
-    if ((key.ctrl && input === 'w') || (key.meta && key.backspace)) {
+    // Ctrl+W or Alt+Backspace (meta+delete = \x1b\x7f): delete word before cursor
+    // Note: ink parses \x7f as key.delete (not key.backspace) — meta+\x7f = Alt+Backspace
+    if ((key.ctrl && input === 'w') || (key.meta && key.delete)) {
       const before = deleteLastWord(value.slice(0, cursor))
       const next = before + value.slice(cursor)
       onValueChange(next, before.length)
@@ -75,15 +91,17 @@ export default function InputBar({
       return
     }
 
-    // Left arrow: move cursor left
+    // Left arrow: move cursor left; Ctrl+Left: jump word left
     if (key.leftArrow) {
-      onValueChange(value, Math.max(0, cursor - 1))
+      const next = key.ctrl ? wordLeft(value, cursor) : Math.max(0, cursor - 1)
+      onValueChange(value, next)
       return
     }
 
-    // Right arrow: move cursor right
+    // Right arrow: move cursor right; Ctrl+Right: jump word right
     if (key.rightArrow) {
-      onValueChange(value, Math.min(value.length, cursor + 1))
+      const next = key.ctrl ? wordRight(value, cursor) : Math.min(value.length, cursor + 1)
+      onValueChange(value, next)
       return
     }
 
@@ -95,20 +113,13 @@ export default function InputBar({
       return
     }
 
-    // Backspace: delete char before cursor
-    if (key.backspace) {
+    // Backspace (delete char before cursor)
+    // ink parses Backspace key (\x7f) as key.delete — so handle both key.backspace and key.delete
+    // Exclude meta+delete (= Alt+Backspace, handled above as delete-word)
+    if ((key.backspace || key.delete) && !key.meta) {
       if (cursor === 0) return
       const next = value.slice(0, cursor - 1) + value.slice(cursor)
       onValueChange(next, cursor - 1)
-      syncDropdown(next, onDropdownQuery, onDropdownClose, dropdownOpen)
-      return
-    }
-
-    // Delete key: delete char at cursor (forward delete)
-    if (key.delete) {
-      if (cursor >= value.length) return
-      const next = value.slice(0, cursor) + value.slice(cursor + 1)
-      onValueChange(next, cursor)
       syncDropdown(next, onDropdownQuery, onDropdownClose, dropdownOpen)
       return
     }
@@ -124,13 +135,17 @@ export default function InputBar({
   const prompt = `[${role}]`
   const atCursor = value[cursor] ?? ' '
 
+  // Build entire line as single chalk string — avoids nested <Text> yoga layout issues
+  // where <Text inverse> creates a block node instead of inline span
+  const line =
+    chalk.yellow(`${prompt} ${symbols.arrow} `) +
+    value.slice(0, cursor) +
+    chalk.inverse(atCursor) +
+    value.slice(cursor + 1)
+
   return (
     <Box borderStyle="single" borderColor={colors.muted} paddingX={1}>
-      <Text color={colors.prompt}>{prompt} </Text>
-      <Text color={colors.prompt}>{symbols.arrow} </Text>
-      <Text>{value.slice(0, cursor)}</Text>
-      <Text inverse>{atCursor}</Text>
-      <Text>{value.slice(cursor + 1)}</Text>
+      <Text wrap="wrap">{line}</Text>
     </Box>
   )
 }
