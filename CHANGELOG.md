@@ -1,0 +1,79 @@
+# Changelog
+
+## v0.1.0 — 2026-06-09
+
+Initial release.
+
+### Core Infrastructure
+- Project setup: TypeScript ESM, ink v5, Vitest, tsup
+- AES-256-GCM encrypted credential storage (`~/.config/solaris-whatsapp-cli/credentials.enc`), key derived from machine username + hostname
+- Plaintext config store via `conf` (`~/.config/solaris-whatsapp-cli/config.json`) for BASE_URL
+- Session state machine: `unauthenticated → admin | client`
+- **Session persistence**: credentials restored automatically on CLI restart; exit without `/logout` keeps session alive
+- Axios-based API client with role-aware header injection (`X-Api-Key`, `X-Device-Id` / `X-Access-Token`)
+- Unified error normalizer for Axios errors and network failures
+- Command registry with role-based filtering and longest-match dispatch
+- Quoted-token argument parser for inline command arguments
+
+### UI Shell (ink)
+- Chat-like interface with `/`-prefix command dispatch
+- **Scrollable chat history**: PgUp / PgDn scroll (5 lines per step); `↑ N messages above` indicator when scrolled up; auto-scroll to bottom on new command
+- **Sticky input bar**: pinned to bottom of terminal using explicit `stdout.rows` height
+- Full cursor support in input bar: left/right arrows, Ctrl+Left/Right (word jump), Ctrl+A/E (line start/end), Ctrl+U (clear line), Backspace, Alt+Backspace / Ctrl+W (delete word)
+- Command history navigation: Up/Down arrows cycle through prior commands
+- `/` dropdown autocomplete: filters commands by prefix, Tab/Enter to complete
+- **Status bar** (pinned below input): connection status (●/○), phone number, daily usage / daily limit, app version (right-aligned)
+- Status bar refreshes after every command dispatch and on startup
+
+### Auth Commands
+| Command | Role | Description |
+|---------|------|-------------|
+| `/login <BASE_URL> <DEVICE_ID> <DEVICE_API_KEY>` | unauthenticated | Login as client device |
+| `/login-admin <BASE_URL> <SERVICE_KEY> <OTP>` | unauthenticated | Login as admin (OTP via server) |
+| `/logout` | admin, client | Clear local credentials only — does not hit API; returns to unauthenticated |
+
+### Admin Commands
+| Command | Description |
+|---------|-------------|
+| `/devices list` | List all devices |
+| `/devices create` | Create device (interactive name prompt) |
+| `/devices get [id]` | Get device details; interactive select if ID omitted |
+| `/devices delete [id]` | Delete device; interactive select if ID omitted |
+| `/devices revoke-key [id]` | Revoke API key; interactive select if ID omitted |
+| `/devices unlock [id]` | Unlock locked device; interactive select if ID omitted |
+| `/quota apply [id]` | Apply quota package; interactive device + package select |
+| `/quota remove [id]` | Remove quota package; interactive select if ID omitted |
+| `/tokens list` | List admin access tokens |
+| `/tokens revoke` | Revoke a token; interactive select from list |
+| `/tokens revoke-all` | Revoke all tokens |
+| `/packages` | List available quota packages |
+
+### Client Commands
+| Command | Description |
+|---------|-------------|
+| `/me` | Show device info and quota status |
+| `/connect` | Connect WhatsApp: POST /me/connect → SSE stream → render QR; ESC to cancel |
+| `/disconnect` | Disconnect phone from WhatsApp (POST /me/logout); CLI credentials kept |
+| `/send text <to> <message>` | Send text message |
+| `/send media <to> <file> [caption] [--document]` | Upload and send media/document; `--document` forces file attachment regardless of MIME type |
+| `/webhook set [url] [secret]` | Set webhook URL and optional secret |
+| `/packages` | List available quota packages |
+| `/clear` | Clear chat history |
+| `/exit` | Exit CLI (session preserved) |
+
+### `/send media` Details
+- Auto-detects MIME type from file extension (image, video, audio, document)
+- Supported document types: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT, CSV, ZIP, RAR, 7Z
+- Files ≤ 2 MB: direct upload (`POST /media/upload/direct`)
+- Files > 2 MB: chunked upload with progress bar (`init → chunk × N → complete`)
+- `--document` flag: sends image/video/audio as file attachment instead of native WhatsApp media type (no preview)
+
+### `/connect` QR Flow
+- SSE stream implemented via `axios` with `responseType: 'stream'` (not `eventsource` — v3 removed `headers` from constructor)
+- QR rendered as medium-size ASCII art via `qrcode` library
+- Live status updates from SSE stream; auto-resolves on `CONNECTED`
+- ESC cancels the QR display and stream
+
+### Testing
+- 163 unit tests across 25 test files
+- Coverage: command handlers, API client, credential encryption/decryption, UI utilities (table formatter, spinner, progress), registry dispatch, session state

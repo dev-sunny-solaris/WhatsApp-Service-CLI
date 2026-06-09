@@ -1,5 +1,6 @@
-import { Text } from 'ink'
+import { Box, Text } from 'ink'
 import chalk from 'chalk'
+import { VERSION } from '../version.js'
 
 export interface StatusInfo {
   connected: boolean
@@ -14,8 +15,15 @@ interface Props {
 }
 
 export default function StatusBar({ status, role }: Props) {
+  const versionLabel = chalk.dim(`v${VERSION}`)
+
   if (role === 'unauthenticated' || !status) {
-    return <Text dimColor> · Not connected</Text>
+    return (
+      <Box justifyContent="space-between">
+        <Text dimColor> · Not connected</Text>
+        <Text>{versionLabel}</Text>
+      </Box>
+    )
   }
 
   const dot = status.connected ? chalk.green('●') : chalk.red('○')
@@ -28,5 +36,12 @@ export default function StatusBar({ status, role }: Props) {
       : chalk.dim(`${status.dailyUsed} sent today`)
 
   const sep = chalk.dim('  ·  ')
-  return <Text>{` ${dot} ${label}${sep}${phone}${sep}${dailyPart}`}</Text>
+  const left = ` ${dot} ${label}${sep}${phone}${sep}${dailyPart}`
+
+  return (
+    <Box justifyContent="space-between">
+      <Text>{left}</Text>
+      <Text>{versionLabel}</Text>
+    </Box>
+  )
 }
