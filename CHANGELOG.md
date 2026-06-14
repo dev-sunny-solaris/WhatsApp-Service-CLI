@@ -1,6 +1,33 @@
 # Changelog
 
-## v0.1.0 — 2026-06-09
+## v0.2.0 — 13 Jun 2026
+
+### Added
+
+- `showInput(prompt)` mechanism in App.tsx — text input prompts for guided command flows; intercepted on next Enter, cancelled by Esc
+- `usage?: string` field on `CommandDef` — shown in autocomplete dropdown as arg hint next to command name
+- `/send` command — fully guided: type selector → phone prompt → message/file prompt
+- Interactive fallback on `/send text` and `/send media` — missing args trigger sequential `showInput` prompts instead of static error
+- `setWebhookUrl`, `setWebhookRedisBasic`, `setWebhookRedisVpn` API functions — replaces `setWebhook`; aligns with service v0.3.2 which requires `type` field on `PATCH /me/webhook`
+- `/webhook redis` — configure Redis Pub/Sub delivery; prints one-time credentials (host, port, username, password, channel)
+- `/webhook redis-vpn <wg_pubkey>` — same as redis but for WireGuard VPN consumers; stores public key server-side
+- `/webhook` with no args — shows interactive type selector (url / redis / redis-vpn)
+- `checkContact(phone)` API function — `GET /contacts/:phone/check`
+- `/contact check <phone>` command — checks if phone is registered on WhatsApp; returns phone, JID, and profile picture URL
+
+### Changed
+
+- `/me` now renders a 2-column `Field | Value` table via `writeTable` instead of plain lines
+- `/webhook set` renamed to `/webhook`; syntax: `/webhook url|redis|redis-vpn [args]`
+- `CommandDropdown` renders `/{name} {usage} — {description}` so users see expected args inline
+
+### Fixed
+
+- `/webhook` was always returning `400 VALIDATION_ERROR` — service v0.3.2 made `type` field mandatory; CLI was not sending it
+
+---
+
+## v0.1.0 — 09 Jun 2026
 
 Initial release.
 
@@ -56,7 +83,7 @@ Initial release.
 | `/disconnect` | Disconnect phone from WhatsApp (POST /me/logout); CLI credentials kept |
 | `/send text <to> <message>` | Send text message |
 | `/send media <to> <file> [caption] [--document]` | Upload and send media/document; `--document` forces file attachment regardless of MIME type |
-| `/webhook set [url] [secret]` | Set webhook URL and optional secret |
+| `/webhook url <url> [secret]` | Set webhook URL and optional secret |
 | `/packages` | List available quota packages |
 | `/clear` | Clear chat history |
 | `/exit` | Exit CLI (session preserved) |
