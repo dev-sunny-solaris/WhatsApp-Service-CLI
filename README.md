@@ -58,11 +58,13 @@ npm run dev
 | `/tokens list` | admin | List active admin tokens |
 | `/tokens revoke` | admin | Revoke current session token |
 | `/tokens revoke-all` | admin | Revoke all tokens |
-| `/me` | client | Show connected device info |
+| `/me` | client | Show connected device info (table) |
 | `/connect` | client | Connect WhatsApp (scan QR) |
-| `/send text` | client | Send a text message |
-| `/send media` | client | Send a media file |
-| `/webhook set` | client | Configure webhook URL |
+| `/contact check` | client | Check if phone is registered on WhatsApp |
+| `/send` | client | Send a message (guided interactive flow) |
+| `/send text` | client | Send a text message (prompts if args missing) |
+| `/send media` | client | Send a media file (prompts if args missing) |
+| `/webhook` | client | Configure webhook delivery (url / redis / redis-vpn) |
 
 **Interactive select:** Commands that accept an optional `[device_id]` or `[package]` show an interactive selector when the argument is omitted. Use `↑↓` to navigate, `Enter` to select, `Esc` to cancel.
 
