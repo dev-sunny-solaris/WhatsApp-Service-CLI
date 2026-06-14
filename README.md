@@ -46,6 +46,7 @@ npm run dev
 | `/login-admin` | — | Authenticate as admin |
 | `/login` | — | Authenticate as client device |
 | `/logout` | admin, client | Clear session and credentials |
+| `/help` | admin, client | Show available commands for current role |
 | `/packages` | admin, client | List available quota packages |
 | `/devices list` | admin | List all registered devices |
 | `/devices create` | admin | Create a new device |
@@ -60,6 +61,7 @@ npm run dev
 | `/tokens revoke-all` | admin | Revoke all tokens |
 | `/me` | client | Show connected device info (table) |
 | `/connect` | client | Connect WhatsApp (scan QR) |
+| `/disconnect` | client | Disconnect WhatsApp from phone (keeps CLI credentials) |
 | `/contact check` | client | Check if phone is registered on WhatsApp |
 | `/send` | client | Send a message (guided interactive flow) |
 | `/send text` | client | Send a text message (prompts if args missing) |

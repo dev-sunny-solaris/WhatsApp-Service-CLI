@@ -78,6 +78,18 @@ Initiate WhatsApp connection. Opens a server-sent event (SSE) stream and display
 
 ---
 
+### `/disconnect`
+
+Disconnect the WhatsApp account from this device. Calls `POST /me/logout` on the service — clears the server-side WhatsApp session. CLI credentials are kept; you do not need to `/login` again.
+
+```
+/disconnect
+```
+
+**Note:** This does not clear local credentials. Use `/logout` to remove stored credentials from disk.
+
+---
+
 ## Messaging
 
 All three send commands support **guided mode**: if required arguments are missing, the CLI will prompt for them interactively.
@@ -204,8 +216,8 @@ Deliver events via HTTP POST to your server.
 
 **Examples:**
 ```
-/webhook set url https://myapp.example.com/webhook
-/webhook set url https://myapp.example.com/webhook mysecretkey123
+/webhook url https://myapp.example.com/webhook
+/webhook url https://myapp.example.com/webhook mysecretkey123
 ```
 
 ---
@@ -227,7 +239,7 @@ Password: <64-hex-chars>
 Channel:  wa:inbound:<device_id>:<token>
 ```
 
-Calling `/webhook set redis` again revokes the previous credentials and issues new ones.
+Calling `/webhook redis` again revokes the previous credentials and issues new ones.
 
 ---
 
@@ -245,7 +257,7 @@ Same as `redis`, but intended for access over a WireGuard VPN tunnel. Stores you
 
 **Example:**
 ```
-/webhook set redis-vpn "abc123pubkeyBase64=="
+/webhook redis-vpn "abc123pubkeyBase64=="
 ```
 
 ---
@@ -253,6 +265,16 @@ Same as `redis`, but intended for access over a WireGuard VPN tunnel. Stores you
 ## Shared Commands
 
 These commands are available to both admin and client roles.
+
+### `/help`
+
+Show all commands available to the current session role. Commands are grouped by prefix and column-aligned with usage hints and descriptions.
+
+```
+/help
+```
+
+---
 
 ### `/packages`
 

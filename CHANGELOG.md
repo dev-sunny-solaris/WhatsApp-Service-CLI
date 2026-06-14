@@ -1,17 +1,21 @@
 # Changelog
 
-## v0.2.0 — 13 Jun 2026
+## v0.2.0 — 14 Jun 2026
 
 ### Added
 
-- `showInput(prompt)` mechanism in App.tsx — text input prompts for guided command flows; intercepted on next Enter, cancelled by Esc
+- `showInput(prompt)` context method — inline text input mode; renders a prompt label below the input bar and waits for the next Enter; Esc cancels
+- `showForm(title, fields, initial?)` context method + `FormPrompt` component — multi-field form overlay; supports `text` and `select` field types, optional fields, and dynamic field lists via `FormFieldsFn`; Tab / ↑↓ navigate between fields, Enter submit, Esc cancel
+- `WelcomeBanner` component — gradient ASCII art "SOLARIS" logo displayed on startup when chat history is empty; replaced by `ChatHistory` once the first command runs
 - `usage?: string` field on `CommandDef` — shown in autocomplete dropdown as arg hint next to command name
-- `/send` command — fully guided: type selector → phone prompt → message/file prompt
-- Interactive fallback on `/send text` and `/send media` — missing args trigger sequential `showInput` prompts instead of static error
+- `/disconnect` command (client) — calls `POST /me/logout`; disconnects WhatsApp from phone while keeping CLI credentials intact
+- `/help` command (all roles) — prints all commands available to the current session role, grouped by command prefix and column-aligned with usage hint and description
+- `/send` command — fully guided via `FormPrompt`: type selector (text / media) followed by role-specific fields
+- Interactive fallback on `/send text` and `/send media` — missing args open a `FormPrompt` form overlay instead of showing a static error; pre-fills any args already supplied inline
 - `setWebhookUrl`, `setWebhookRedisBasic`, `setWebhookRedisVpn` API functions — replaces `setWebhook`; aligns with service v0.3.2 which requires `type` field on `PATCH /me/webhook`
 - `/webhook redis` — configure Redis Pub/Sub delivery; prints one-time credentials (host, port, username, password, channel)
 - `/webhook redis-vpn <wg_pubkey>` — same as redis but for WireGuard VPN consumers; stores public key server-side
-- `/webhook` with no args — shows interactive type selector (url / redis / redis-vpn)
+- `/webhook` with no args — shows interactive `FormPrompt` type selector (url / redis / redis-vpn)
 - `checkContact(phone)` API function — `GET /contacts/:phone/check`
 - `/contact check <phone>` command — checks if phone is registered on WhatsApp; returns phone, JID, and profile picture URL
 

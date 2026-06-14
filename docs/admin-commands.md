@@ -211,6 +211,16 @@ Revoke **all** admin tokens and log out. All active admin sessions across all ma
 
 These commands are available to both admin and client roles.
 
+### `/help`
+
+Show all commands available to the current session role. Commands are grouped by prefix and column-aligned with usage hints and descriptions.
+
+```
+/help
+```
+
+---
+
 ### `/packages`
 
 List all available named quota packages and their limits.
