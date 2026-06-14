@@ -80,78 +80,172 @@ Initiate WhatsApp connection. Opens a server-sent event (SSE) stream and display
 
 ## Messaging
 
-### `/send text`
+All three send commands support **guided mode**: if required arguments are missing, the CLI will prompt for them interactively.
 
-Send a plain text message to a WhatsApp number or group.
+### `/send`
+
+Fully guided send flow. Shows a type selector, then prompts for each argument.
 
 ```
-/send text <to> <message>
+/send
+```
+
+---
+
+### `/send text`
+
+Send a plain text message. Arguments are optional — missing ones are prompted interactively.
+
+```
+/send text [to] [message]
 ```
 
 | Argument | Description |
 |----------|-------------|
-| `to` | Recipient — phone number in international format (e.g. `628123456789`) or group ID |
-| `message` | Message text (spaces allowed, everything after `<to>` is the message) |
+| `to` | Recipient phone number (e.g. `628123456789`). Prompted if omitted. |
+| `message` | Message text (spaces allowed). Prompted if omitted. |
 
-**Example:**
+**Examples:**
 ```
-/send text 628123456789 Hello! How are you?
+/send text                          ← prompts for phone + message
+/send text 628123456789             ← prompts for message only
+/send text 628123456789 Hello!
 ```
 
 ---
 
 ### `/send media`
 
-Upload a file and send it as a media message. Supports images, video, audio, and documents.
+Upload a file and send it as a media message. Arguments are optional — missing ones are prompted interactively.
 
 ```
-/send media <to> <file_path> [caption]
+/send media [to] [file_path] [caption]
 ```
 
 | Argument | Description |
 |----------|-------------|
-| `to` | Recipient phone number or group ID |
-| `file_path` | Absolute or relative path to the file |
-| `caption` | Optional caption text (spaces allowed) |
+| `to` | Recipient phone number. Prompted if omitted. |
+| `file_path` | Absolute or relative path to the file. Prompted if omitted. |
+| `caption` | Optional caption text. Prompted if omitted; press **Esc** to skip. |
 
 **Upload behavior:**
 - Files ≤ 2 MB: direct upload in a single request
-- Files > 2 MB: chunked upload (2 MB chunks)
-- Upload progress is shown in the terminal during transfer
+- Files > 2 MB: chunked upload (2 MB chunks), progress shown in terminal
 
-**Supported formats:** jpg, jpeg, png, gif, webp, mp4, mov, avi, mp3, ogg, wav, pdf, doc, docx, xls, xlsx, and more
+**`--document` flag:** forces image/video/audio to be sent as a file attachment (no WhatsApp preview). Only works when all args are provided inline:
+```
+/send media 628123456789 /home/user/photo.jpg --document
+```
 
 **Examples:**
 ```
-/send media 628123456789 /home/user/photo.jpg
-/send media 628123456789 /home/user/document.pdf Please review this document
-/send media 628123456789 "/home/user/my photo.jpg"
-/send media 628123456789 "/home/user/my photo.jpg" "Please review this"
+/send media                              ← prompts for all
+/send media 628123456789                 ← prompts for file + caption
+/send media 628123456789 /home/u/a.jpg
+/send media 628123456789 "/my photo.jpg" "Please review"
+```
+
+---
+
+## Contacts
+
+### `/contact check`
+
+Check whether a phone number is registered on WhatsApp. Returns the canonical JID and profile picture URL.
+
+```
+/contact check <phone>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `phone` | Phone number in international format (e.g. `628123456789`) |
+
+**Output includes:**
+- Canonical phone number (normalized by the service)
+- WhatsApp JID (`phone@s.whatsapp.net`)
+- Profile picture URL (`none` if not available or privacy-blocked)
+
+Returns a `NOT_ON_WHATSAPP` error if the number is not registered.
+
+**Example:**
+```
+/contact check 628123456789
 ```
 
 ---
 
 ## Webhook
 
-### `/webhook set`
+### `/webhook`
 
-Configure the webhook URL where incoming messages and status events will be delivered.
+Configure how incoming events are delivered to your application. Three delivery types are supported.
 
 ```
-/webhook set <url> [secret]
+/webhook [type] [args...]
+```
+
+If `type` is omitted, an **interactive selector** appears.
+
+---
+
+#### Type: `url`
+
+Deliver events via HTTP POST to your server.
+
+```
+/webhook url <url> [secret]
 ```
 
 | Argument | Description |
 |----------|-------------|
-| `url` | HTTPS URL to receive webhook events |
-| `secret` | Optional signing secret for request verification |
-
-The webhook receives POST requests for incoming messages, delivery receipts, and connection status changes.
+| `url` | HTTPS endpoint to receive webhook events |
+| `secret` | Optional HMAC-SHA256 signing secret |
 
 **Examples:**
 ```
-/webhook set https://myapp.example.com/webhook
-/webhook set https://myapp.example.com/webhook mysecretkey123
+/webhook set url https://myapp.example.com/webhook
+/webhook set url https://myapp.example.com/webhook mysecretkey123
+```
+
+---
+
+#### Type: `redis`
+
+Deliver events via Redis Pub/Sub. The service creates a dedicated ACL user restricted to a single channel.
+
+```
+/webhook redis
+```
+
+No arguments needed. On success, credentials are printed **once only** — save them immediately:
+
+```
+Host:     redis.example.com:6379
+Username: wa_abc123_d4e5f6a7
+Password: <64-hex-chars>
+Channel:  wa:inbound:<device_id>:<token>
+```
+
+Calling `/webhook set redis` again revokes the previous credentials and issues new ones.
+
+---
+
+#### Type: `redis-vpn`
+
+Same as `redis`, but intended for access over a WireGuard VPN tunnel. Stores your WireGuard public key for server-side peer registration.
+
+```
+/webhook redis-vpn <wg_pubkey>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `wg_pubkey` | WireGuard public key of the consumer host |
+
+**Example:**
+```
+/webhook set redis-vpn "abc123pubkeyBase64=="
 ```
 
 ---
