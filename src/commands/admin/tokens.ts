@@ -49,6 +49,6 @@ export async function tokensRevokeAllHandler(ctx: CommandContext): Promise<void>
   }
 }
 
-registerCommand({ name: 'tokens list',       description: 'List active admin tokens',  roles: ['admin'], handler: tokensListHandler })
-registerCommand({ name: 'tokens revoke',     description: 'Revoke current session',    roles: ['admin'], handler: tokensRevokeHandler })
-registerCommand({ name: 'tokens revoke-all', description: 'Revoke all admin tokens',   roles: ['admin'], handler: tokensRevokeAllHandler })
+registerCommand({ name: 'tokens list',       usage: '',  description: 'List active admin tokens',  roles: ['admin'], handler: tokensListHandler })
+registerCommand({ name: 'tokens revoke',     usage: '',  description: 'Revoke current session',    roles: ['admin'], handler: tokensRevokeHandler })
+registerCommand({ name: 'tokens revoke-all', usage: '',  description: 'Revoke all admin tokens',   roles: ['admin'], handler: tokensRevokeAllHandler })

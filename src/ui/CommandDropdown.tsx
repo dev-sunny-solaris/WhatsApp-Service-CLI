@@ -25,17 +25,20 @@ export default function CommandDropdown({ commands, selectedIndex }: Props) {
 
   return (
     <Box flexDirection="column" borderStyle="single" borderColor={colors.muted}>
-      {commands.map((cmd, i) => (
-        <Box key={cmd.name} paddingX={1}>
-          <Text
-            color={i === selectedIndex ? colors.prompt : colors.muted}
-            bold={i === selectedIndex}
-          >
-            /{cmd.name}
-          </Text>
-          <Text color={colors.muted}> — {cmd.description}</Text>
-        </Box>
-      ))}
+      {commands.map((cmd, i) => {
+        const isSelected = i === selectedIndex
+        return (
+          <Box key={cmd.name} paddingX={1}>
+            <Text color={isSelected ? colors.prompt : colors.highlight} bold={isSelected}>
+              /{cmd.name}
+            </Text>
+            {cmd.usage && (
+              <Text color={colors.muted}> {cmd.usage}</Text>
+            )}
+            <Text color={colors.muted}> — {cmd.description}</Text>
+          </Box>
+        )
+      })}
     </Box>
   )
 }

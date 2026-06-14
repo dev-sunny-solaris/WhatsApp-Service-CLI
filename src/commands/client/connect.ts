@@ -104,4 +104,4 @@ export async function connectHandler(ctx: CommandContext): Promise<void> {
   })
 }
 
-registerCommand({ name: 'connect', description: 'Connect WhatsApp (scan QR)', roles: ['client'], handler: connectHandler })
+registerCommand({ name: 'connect', usage: '', description: 'Connect WhatsApp (scan QR)', roles: ['client'], handler: connectHandler })

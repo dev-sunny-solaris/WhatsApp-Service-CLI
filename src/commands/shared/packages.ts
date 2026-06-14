@@ -30,4 +30,4 @@ export async function packagesHandler(ctx: CommandContext): Promise<void> {
   }
 }
 
-registerCommand({ name: 'packages', description: 'List available quota packages', roles: ['admin', 'client'], handler: packagesHandler })
+registerCommand({ name: 'packages', usage: '', description: 'List available quota packages', roles: ['admin', 'client'], handler: packagesHandler })

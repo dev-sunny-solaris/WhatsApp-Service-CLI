@@ -19,6 +19,8 @@ export async function loginHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'login',
+  usage: '<BASE_URL> <DEVICE_ID> <DEVICE_API_KEY>',
+  params: ['base_url', 'device_id', 'api_key'],
   description: 'Login as device (client role)',
   roles: ['unauthenticated'],
   handler: loginHandler,

@@ -40,6 +40,8 @@ export async function loginAdminHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'login-admin',
+  usage: '<BASE_URL> <SERVICE_KEY> <OTP>',
+  params: ['base_url', 'service_key', 'otp'],
   description: 'Login as admin',
   roles: ['unauthenticated'],
   handler: loginAdminHandler,

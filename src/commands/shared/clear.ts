@@ -6,6 +6,7 @@ export async function clearHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'clear',
+  usage: '',
   description: 'Clear chat history',
   roles: ['unauthenticated', 'admin', 'client'],
   handler: clearHandler,

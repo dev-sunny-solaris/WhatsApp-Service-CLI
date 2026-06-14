@@ -10,6 +10,7 @@ export async function logoutHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'logout',
+  usage: '',
   description: 'Logout and clear session',
   roles: ['admin', 'client'],
   handler: logoutHandler,

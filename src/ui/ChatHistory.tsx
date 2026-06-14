@@ -7,12 +7,25 @@ export function buildPrefix(type: OutputType): string {
     case 'success': return symbols.check + ' '
     case 'error':   return symbols.cross + ' '
     case 'info':    return symbols.bullet + ' '
-    case 'raw':     return ''
+    default:        return ''
   }
 }
 
 function lineColor(type: OutputType): string {
-  return colors[type === 'raw' ? 'highlight' : type]
+  if (type === 'success') return colors.success
+  if (type === 'error')   return colors.error
+  if (type === 'info')    return colors.info
+  return colors.highlight
+}
+
+function formatTimestamp(date?: Date): string {
+  if (!date) return ''
+  const h  = date.getHours().toString().padStart(2, '0')
+  const m  = date.getMinutes().toString().padStart(2, '0')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const d  = date.getDate().toString().padStart(2, '0')
+  const mo = months[date.getMonth()]
+  return `${h}:${m}  ${d} ${mo}`
 }
 
 interface Props {
@@ -34,11 +47,34 @@ export default function ChatHistory({ messages, scrollOffset, maxRows }: Props) 
       {hiddenAbove > 0 && (
         <Text dimColor>{` ↑ ${hiddenAbove} message${hiddenAbove > 1 ? 's' : ''} above  ·  PgUp / PgDn to scroll`}</Text>
       )}
-      {visible.map((line, i) => (
-        <Text key={start + i} color={lineColor(line.type)}>
-          {buildPrefix(line.type)}{line.text}
-        </Text>
-      ))}
+      {visible.map((line, i) => {
+        const key = start + i
+
+        if (line.type === 'cmd-spacer') {
+          return <Text key={key}> </Text>
+        }
+
+        if (line.type === 'cmd-header') {
+          return (
+            <Box key={key} justifyContent="space-between">
+              <Text bold color={colors.highlight}>▸ /{line.text}</Text>
+              <Text color={colors.muted}> {formatTimestamp(line.timestamp)}</Text>
+            </Box>
+          )
+        }
+
+        if (line.type === 'cmd-arg') {
+          return (
+            <Text key={key} color={colors.muted}>{'  '}{line.text}</Text>
+          )
+        }
+
+        return (
+          <Text key={key} color={lineColor(line.type)}>
+            {buildPrefix(line.type)}{line.text}
+          </Text>
+        )
+      })}
     </Box>
   )
 }

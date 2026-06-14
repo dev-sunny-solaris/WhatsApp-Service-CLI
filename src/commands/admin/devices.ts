@@ -131,9 +131,9 @@ export async function devicesUnlockHandler(ctx: CommandContext): Promise<void> {
   })
 }
 
-registerCommand({ name: 'devices list',       description: 'List all devices',               roles: ['admin'], handler: devicesListHandler })
-registerCommand({ name: 'devices create',     description: 'Create a new device',            roles: ['admin'], handler: devicesCreateHandler })
-registerCommand({ name: 'devices get',        description: 'Show device details',            roles: ['admin'], handler: devicesGetHandler })
-registerCommand({ name: 'devices delete',     description: 'Delete a device',                roles: ['admin'], handler: devicesDeleteHandler })
-registerCommand({ name: 'devices revoke-key', description: 'Rotate device API key',          roles: ['admin'], handler: devicesRevokeKeyHandler })
-registerCommand({ name: 'devices unlock',     description: 'Unlock locked device',           roles: ['admin'], handler: devicesUnlockHandler })
+registerCommand({ name: 'devices list',       usage: '',                description: 'List all devices',               roles: ['admin'], handler: devicesListHandler })
+registerCommand({ name: 'devices create',     usage: '<name>',          description: 'Create a new device',            roles: ['admin'], handler: devicesCreateHandler })
+registerCommand({ name: 'devices get',        usage: '[device_id]',     description: 'Show device details',            roles: ['admin'], handler: devicesGetHandler })
+registerCommand({ name: 'devices delete',     usage: '[device_id]',     description: 'Delete a device',                roles: ['admin'], handler: devicesDeleteHandler })
+registerCommand({ name: 'devices revoke-key', usage: '[device_id]',     description: 'Rotate device API key',          roles: ['admin'], handler: devicesRevokeKeyHandler })
+registerCommand({ name: 'devices unlock',     usage: '[device_id]',     description: 'Unlock locked device',           roles: ['admin'], handler: devicesUnlockHandler })

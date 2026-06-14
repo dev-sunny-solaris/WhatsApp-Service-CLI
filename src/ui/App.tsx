@@ -1,15 +1,18 @@
-import { Box, useApp, useInput, useStdout } from 'ink'
+import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { getMe } from '../api/device.js'
-import { dispatch, matchCommands, type CommandDef, type OutputLine } from '../commands/registry.js'
+import { dispatch, matchCommands, type CommandDef, type FormFieldsFn, type FormValues, type OutputLine } from '../commands/registry.js'
 import { getRole } from '../state/session.js'
 import ChatHistory from './ChatHistory.js'
+import WelcomeBanner from './WelcomeBanner.js'
 import CommandDropdown from './CommandDropdown.js'
 import { filterCommands, nextIndex, prevIndex } from './CommandDropdown.js'
+import FormPrompt from './FormPrompt.js'
 import InputBar from './InputBar.js'
 import SelectPrompt from './SelectPrompt.js'
 import { nextSelectIndex, prevSelectIndex, type SelectItem } from './selectHelpers.js'
 import StatusBar, { type StatusInfo } from './StatusBar.js'
+import { colors, symbols } from './theme.js'
 
 const PAGE_SIZE = 5
 
@@ -20,11 +23,20 @@ interface SelectMode {
   onCancel: () => void
 }
 
+interface FormMode {
+  title: string
+  fields: FormFieldsFn
+  initial: FormValues
+  onSubmit: (values: FormValues) => void
+  onCancel: () => void
+}
+
 export default function App() {
   const { exit } = useApp()
   const { stdout } = useStdout()
   const cancelRef = useRef<(() => void) | null>(null)
   const messagesRef = useRef<OutputLine[]>([])
+  const inputModeRef = useRef<((v: string | undefined) => void) | null>(null)
   const [messages, setMessages] = useState<OutputLine[]>([])
   const [activeView, setActiveView] = useState<ReactElement | null>(null)
   const [input, setInput] = useState({ value: '', cursor: 0 })
@@ -37,6 +49,8 @@ export default function App() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [selectMode, setSelectMode] = useState<SelectMode | null>(null)
   const [selectIndex, setSelectIndex] = useState(0)
+  const [inputModePrompt, setInputModePrompt] = useState<string | null>(null)
+  const [formMode, setFormMode] = useState<FormMode | null>(null)
   const selectIndexRef = useRef(0)
 
   // Keep ref in sync so useInput can read current messages.length without stale closure
@@ -69,6 +83,34 @@ export default function App() {
             setSelectIndex(0)
             resolve(undefined)
           },
+        })
+      }),
+    [],
+  )
+
+  const showInput = useCallback((prompt: string): Promise<string | undefined> => {
+    return new Promise((resolve) => {
+      setInputModePrompt(prompt)
+      inputModeRef.current = resolve
+    })
+  }, [])
+
+  const showForm = useCallback(
+    (title: string, fields: FormFieldsFn, initial?: Partial<FormValues>): Promise<FormValues | undefined> =>
+      new Promise((resolve) => {
+        const initValues: FormValues = { ...(initial ?? {}) }
+        const seedFields = typeof fields === 'function' ? fields(initValues) : fields
+        for (const f of seedFields) {
+          if (f.type === 'select' && f.options?.length && !initValues[f.key]) {
+            initValues[f.key] = f.options[0].value
+          }
+        }
+        setFormMode({
+          title,
+          fields,
+          initial: initValues,
+          onSubmit: (values) => { setFormMode(null); resolve(values) },
+          onCancel: () => { setFormMode(null); resolve(undefined) },
         })
       }),
     [],
@@ -114,41 +156,65 @@ export default function App() {
   }, [])
 
   const handleSubmit = useCallback(
-    async (input: string) => {
-      if (input.trim()) {
-        setCommandHistory((prev) => [...prev, input.trim()])
+    async (rawInput: string) => {
+      // Route to pending text input prompt if one is active
+      if (inputModeRef.current) {
+        const resolver = inputModeRef.current
+        inputModeRef.current = null
+        setInputModePrompt(null)
+        writeLine({ text: rawInput, type: 'raw' })
+        setScrollOffset(0)
+        resolver(rawInput || undefined)
+        return
+      }
+
+      if (rawInput.trim()) {
+        setCommandHistory((prev) => [...prev, rawInput.trim()])
         setHistoryIndex(-1)
       }
-      writeLine({ text: input, type: 'raw' })
       setScrollOffset(0)
 
       const role = getRole()
-      const found = await dispatch(input, role, {
+      const found = await dispatch(rawInput, role, {
         write,
         writeLine,
         setView: setActiveView,
         showSelect,
+        showInput,
+        showForm,
         clear: () => setMessages([]),
         exit,
         setCancel: (fn) => { cancelRef.current = fn },
       })
 
       if (!found) {
-        write(`Unknown command: ${input}`, 'error')
+        write(`Unknown command: ${rawInput}`, 'error')
       }
 
       void refreshStatus()
     },
-    [write, writeLine, showSelect, refreshStatus, exit],
+    [write, writeLine, showSelect, showInput, showForm, refreshStatus, exit],
   )
 
   useInput((_input, key) => {
-    // ESC while active view (e.g. QR) is showing → cancel command
-    if (key.escape && activeView) {
-      cancelRef.current?.()
-      cancelRef.current = null
-      setActiveView(null)
-      return
+    if (formMode) return
+
+    if (key.escape) {
+      // Cancel active view (QR, spinner, etc.)
+      if (activeView) {
+        cancelRef.current?.()
+        cancelRef.current = null
+        setActiveView(null)
+        return
+      }
+      // Cancel pending text input prompt
+      if (inputModeRef.current) {
+        const resolver = inputModeRef.current
+        inputModeRef.current = null
+        setInputModePrompt(null)
+        resolver(undefined)
+        return
+      }
     }
 
     // Scroll chat history
@@ -222,10 +288,21 @@ export default function App() {
   return (
     <Box flexDirection="column" height={stdout.rows}>
       <Box flexGrow={1} flexDirection="column" justifyContent="flex-end" overflow="hidden">
-        <ChatHistory messages={messages} scrollOffset={scrollOffset} maxRows={visibleRows} />
+        {messages.length === 0
+          ? <WelcomeBanner />
+          : <ChatHistory messages={messages} scrollOffset={scrollOffset} maxRows={visibleRows} />
+        }
       </Box>
 
-      {selectMode ? (
+      {formMode ? (
+        <FormPrompt
+          title={formMode.title}
+          fields={formMode.fields}
+          initial={formMode.initial}
+          onSubmit={formMode.onSubmit}
+          onCancel={formMode.onCancel}
+        />
+      ) : selectMode ? (
         <SelectPrompt
           items={selectMode.items}
           selectedIndex={selectIndex}
@@ -240,6 +317,11 @@ export default function App() {
           ) : dropdownOpen ? (
             <CommandDropdown commands={dropdownCommands} selectedIndex={selectedIndex} />
           ) : null}
+          {inputModePrompt && (
+            <Box paddingLeft={2}>
+              <Text color={colors.prompt}>{symbols.arrow} {inputModePrompt}</Text>
+            </Box>
+          )}
           <InputBar
             value={input.value}
             cursor={input.cursor}

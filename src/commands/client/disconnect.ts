@@ -14,6 +14,7 @@ export async function disconnectHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'disconnect',
+  usage: '',
   description: 'Disconnect WhatsApp from phone (keeps CLI credentials)',
   roles: ['client'],
   handler: disconnectHandler,

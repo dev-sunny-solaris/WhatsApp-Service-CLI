@@ -6,6 +6,7 @@ export async function exitHandler(ctx: CommandContext): Promise<void> {
 
 registerCommand({
   name: 'exit',
+  usage: '',
   description: 'Logout and exit the CLI',
   roles: ['unauthenticated', 'admin', 'client'],
   handler: exitHandler,

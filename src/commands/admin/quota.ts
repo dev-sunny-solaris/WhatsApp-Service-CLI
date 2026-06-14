@@ -81,5 +81,5 @@ export async function quotaRemoveHandler(ctx: CommandContext): Promise<void> {
   }
 }
 
-registerCommand({ name: 'quota apply',  description: 'Apply quota package to device', roles: ['admin'], handler: quotaApplyHandler })
-registerCommand({ name: 'quota remove', description: 'Remove quota from device',      roles: ['admin'], handler: quotaRemoveHandler })
+registerCommand({ name: 'quota apply',  usage: '[device_id] [package]', description: 'Apply quota package to device', roles: ['admin'], handler: quotaApplyHandler })
+registerCommand({ name: 'quota remove', usage: '[device_id]',           description: 'Remove quota from device',      roles: ['admin'], handler: quotaRemoveHandler })
