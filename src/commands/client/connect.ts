@@ -87,6 +87,14 @@ export async function connectHandler(ctx: CommandContext): Promise<void> {
             ctx.setView?.(null)
             ctx.write('WhatsApp connected!', 'success')
             resolve()
+          } else if (data.status === 'DISCONNECTED') {
+            stopStream?.()
+            ctx.setCancel?.(null)
+            ctx.setView?.(null)
+            ctx.write('Connection failed.', 'error')
+            resolve()
+          } else if (data.status === 'QR_PENDING' && !qrReceived) {
+            ctx.write('Waiting for QR...', 'info')
           } else if (!qrReceived) {
             ctx.write(`Status: ${data.status}`, 'info')
           }

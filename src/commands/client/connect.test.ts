@@ -128,6 +128,62 @@ describe('/connect handler', () => {
     expect(mockAxiosGet).not.toHaveBeenCalled()
   })
 
+  it('destroys stream and writes error on DISCONNECTED', async () => {
+    mockConnect.mockResolvedValue(undefined)
+    const { connectHandler } = await import('./connect.js')
+    const ctx = makeCtx()
+
+    const promise = connectHandler(ctx)
+    await tick()
+
+    stream.push(sseEvent({ type: 'status', status: 'DISCONNECTED' }))
+    await promise
+
+    expect(stream.destroyed).toBe(true)
+    expect(ctx.setView).toHaveBeenCalledWith(null)
+    expect(ctx.writes.some((w) => w.type === 'error')).toBe(true)
+  })
+
+  it('writes info on QR_PENDING when no QR received yet', async () => {
+    mockConnect.mockResolvedValue(undefined)
+    const { connectHandler } = await import('./connect.js')
+    const ctx = makeCtx()
+
+    const promise = connectHandler(ctx)
+    await tick()
+
+    stream.push(sseEvent({ type: 'status', status: 'QR_PENDING' }))
+    await tick()
+
+    expect(ctx.writes.some((w) => w.text.toLowerCase().includes('waiting') && w.type === 'info')).toBe(true)
+
+    stream.push(sseEvent({ type: 'status', status: 'CONNECTED' }))
+    await promise
+  })
+
+  it('handles switch number flow: QR_PENDING → qr → CONNECTED', async () => {
+    mockConnect.mockResolvedValue(undefined)
+    const { connectHandler } = await import('./connect.js')
+    const ctx = makeCtx()
+
+    const promise = connectHandler(ctx)
+    await tick()
+
+    stream.push(sseEvent({ type: 'status', status: 'QR_PENDING' }))
+    await tick()
+
+    stream.push(sseEvent({ type: 'qr', qr: 'qr-switch-string' }))
+    await tick()
+
+    expect(ctx.setView).toHaveBeenCalledWith(expect.anything())
+
+    stream.push(sseEvent({ type: 'status', status: 'CONNECTED' }))
+    await promise
+
+    expect(stream.destroyed).toBe(true)
+    expect(ctx.writes.some((w) => w.type === 'success')).toBe(true)
+  })
+
   it('writes error and resolves on stream error', async () => {
     mockConnect.mockResolvedValue(undefined)
     const { connectHandler } = await import('./connect.js')
