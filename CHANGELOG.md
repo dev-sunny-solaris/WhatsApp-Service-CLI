@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.1 — 15 Jun 2026
+
+### Fixed
+
+- `/connect` — handle `DISCONNECTED` status during QR stream: stop stream and report connection failed
+- `/connect` — show `Waiting for QR...` on `QR_PENDING` before first QR is received instead of printing raw status
+
 ## v0.2.0 — 14 Jun 2026
 
 ### Added
