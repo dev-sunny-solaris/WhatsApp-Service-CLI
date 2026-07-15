@@ -12,15 +12,29 @@ export interface StatusInfo {
 interface Props {
   status: StatusInfo | null
   role: string
+  baseUrl: string
 }
 
-export default function StatusBar({ status, role }: Props) {
+function extractHost(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
+
+export default function StatusBar({ status, role, baseUrl }: Props) {
   const versionLabel = chalk.dim(`v${VERSION}`)
+  const sep = chalk.dim('  ·  ')
+  const host = baseUrl ? chalk.white(extractHost(baseUrl)) : null
 
   if (role === 'unauthenticated' || !status) {
+    const left = host
+      ? ` ${host}${sep}${chalk.dim('Not connected')}`
+      : chalk.dim(' · Not connected')
     return (
       <Box justifyContent="space-between">
-        <Text dimColor> · Not connected</Text>
+        <Text>{left}</Text>
         <Text>{versionLabel}</Text>
       </Box>
     )
@@ -35,8 +49,9 @@ export default function StatusBar({ status, role }: Props) {
       ? `${chalk.yellow(String(status.dailyUsed))}${chalk.dim('/')}${chalk.dim(String(status.dailyLimit))} ${chalk.dim('today')}`
       : chalk.dim(`${status.dailyUsed} sent today`)
 
-  const sep = chalk.dim('  ·  ')
-  const left = ` ${dot} ${label}${sep}${phone}${sep}${dailyPart}`
+  const left = host
+    ? ` ${host}${sep}${dot} ${label}${sep}${phone}${sep}${dailyPart}`
+    : ` ${dot} ${label}${sep}${phone}${sep}${dailyPart}`
 
   return (
     <Box justifyContent="space-between">

@@ -2,7 +2,7 @@ import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { getMe } from '../api/device.js'
 import { dispatch, matchCommands, type CommandDef, type FormFieldsFn, type FormValues, type OutputLine } from '../commands/registry.js'
-import { getRole } from '../state/session.js'
+import { getRole, getSession } from '../state/session.js'
 import ChatHistory from './ChatHistory.js'
 import WelcomeBanner from './WelcomeBanner.js'
 import CommandDropdown from './CommandDropdown.js'
@@ -282,6 +282,7 @@ export default function App() {
   })
 
   const role = getRole()
+  const baseUrl = getSession().baseUrl
   // Available rows for chat: total - status bar (1) - input bar border+content (3)
   const visibleRows = Math.max(5, stdout.rows - 4)
 
@@ -335,7 +336,7 @@ export default function App() {
         </>
       )}
 
-      <StatusBar status={status} role={role} />
+      <StatusBar status={status} role={role} baseUrl={baseUrl} />
     </Box>
   )
 }
