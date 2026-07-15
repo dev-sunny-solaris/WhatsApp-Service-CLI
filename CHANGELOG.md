@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.2 — 15 Jul 2026
+
+### Added
+
+- Status bar shows API base URL host alongside connection status
+
 ## v0.2.1 — 15 Jun 2026
 
 ### Fixed
